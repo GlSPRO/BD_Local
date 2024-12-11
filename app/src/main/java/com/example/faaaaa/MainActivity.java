@@ -8,8 +8,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
-import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -28,29 +26,31 @@ import java.util.List;
 import io.paperdb.Paper;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int PICK_IMAGE_REQUEST = 1;
+    private static final int PICK_IMAGE_REQUEST = 1; // Код запроса для выбора изображения
 
-    private EditText nameText, descriptionText;
-    private Button addButton, uploadImageButton, deleteButton;
-    private ImageView itemImageView;
-    private ListView listView;
+    private EditText nameText, descriptionText; // Поля ввода для имени и описания товара
+    private Button addButton, uploadImageButton, deleteButton; // Кнопки для добавления, загрузки изображения и удаления товара
+    private ImageView itemImageView; // Изображение товара
+    private ListView listView; // Список товаров
 
-    private ArrayAdapter<String> adapter;
-    private List<ClothindItem> clothingItems = new ArrayList<>();
-    private String selectedImagePath;
-    private String selectedItemId;
+    private ArrayAdapter<String> adapter; // Адаптер для списка товаров
+    private List<Item> clothingItems = new ArrayList<>(); // Список объектов товаров
+    private String selectedImagePath; // Путь к выбранному изображению
+    private String selectedItemId; // ID выбранного товара
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main); // Установка макета активности
 
-        Paper.init(this);
+        Paper.init(this); // Инициализация библиотеки PaperDB
 
+        // Проверка разрешений на чтение внешнего хранилища
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PICK_IMAGE_REQUEST);
         }
 
+        // Инициализация элементов UI
         nameText = findViewById(R.id.nameText);
         descriptionText = findViewById(R.id.descriptionText);
         uploadImageButton = findViewById(R.id.uploadImageButton);
@@ -59,33 +59,38 @@ public class MainActivity extends AppCompatActivity {
         deleteButton = findViewById(R.id.deleteButton);
         listView = findViewById(R.id.listView);
 
+        // Настройка адаптера для списка товаров
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, getClothingItemNames());
         listView.setAdapter(adapter);
 
+        // Обработчик нажатия на кнопку загрузки изображения
         uploadImageButton.setOnClickListener(v -> openFileChooser());
 
+        // Обработчик нажатия на кнопку добавления товара
         addButton.setOnClickListener(v -> {
-            String name = nameText.getText().toString();
-            String description = descriptionText.getText().toString();
+            String name = nameText.getText().toString(); // Получаем имя товара из поля ввода
+            String description = descriptionText.getText().toString(); // Получаем описание товара из поля ввода
             if (!name.isEmpty() && !description.isEmpty() && selectedImagePath != null) {
-                ClothindItem item = new ClothindItem(name + "_" + System.currentTimeMillis(), name, description, selectedImagePath);
+                // Создаем новый объект ClothindItem и сохраняем его в базе данных PaperDB
+                Item item = new Item(name + "_" + System.currentTimeMillis(), name, description, selectedImagePath);
                 Paper.book().write(item.getId(), item);
-                updateClothingList();
-                clearInputs();
+                updateClothingList(); // Обновляем список товаров
+                clearInputs(); // Очищаем поля ввода
             } else {
                 Toast.makeText(MainActivity.this, "Пожалуйста, заполните все поля и выберите изображение", Toast.LENGTH_SHORT).show();
             }
         });
 
+        // Обработчик нажатия на элемент списка товаров
         listView.setOnItemClickListener((parent, view, position, id) -> {
             try {
-                ClothindItem item = clothingItems.get(position);
-                nameText.setText(item.getName());
-                descriptionText.setText(item.getDescription());
-                selectedImagePath = item.getImagePath();
-                selectedItemId = item.getId();
+                Item item = clothingItems.get(position); // Получаем выбранный товар из списка
+                nameText.setText(item.getName()); // Устанавливаем имя товара в поле ввода
+                descriptionText.setText(item.getDescription()); // Устанавливаем описание товара в поле ввода
+                selectedImagePath = item.getImagePath(); // Сохраняем путь к изображению товара
+                selectedItemId = item.getId(); // Сохраняем ID выбранного товара
 
-                loadImage(selectedImagePath);
+                loadImage(selectedImagePath); // Загружаем изображение товара в ImageView
             } catch (IndexOutOfBoundsException e) {
                 Toast.makeText(MainActivity.this, "Ошибка: товар не найден", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
@@ -93,14 +98,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Обработчик нажатия на кнопку удаления товара
         deleteButton.setOnClickListener(v -> {
             if (selectedItemId == null) {
                 Toast.makeText(MainActivity.this, "Пожалуйста, сначала выберите товар", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Paper.book().delete(selectedItemId);
-            updateClothingList();
-            clearInputs();
+
+            Paper.book().delete(selectedItemId); // Удаляем товар из базы данных PaperDB
+            updateClothingList(); // Обновляем список товаров
+            clearInputs(); // Очищаем поля ввода
             Toast.makeText(MainActivity.this, "Товар удален", Toast.LENGTH_SHORT).show();
         });
 
@@ -131,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
         clothingItems.clear();
         for (String key : Paper.book().getAllKeys()) {
             try {
-                ClothindItem item = Paper.book().read(key);
+                Item item = Paper.book().read(key);
                 if (item != null) {
                     names.add(item.getName());
                     clothingItems.add(item);
@@ -156,7 +163,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Ошибка загрузки изображения: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 e.printStackTrace();
-//                Toast.makeText(MainActivity.this, "Ошибка: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+//              Toast.makeText(MainActivity.this, "Ошибка: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         } else {
             itemImageView.setImageResource(0);
